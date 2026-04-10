@@ -6,6 +6,13 @@ SM_TICK_TEXT = ["None", "<1 hr", "1–3 hrs", "4–6 hrs", "7+ hrs"]
 X_VALS       = SM_TICK_VALS
 
 
+def _hex_to_rgba(hex_colour, alpha=0.15):
+    """Convert hex colour to rgba string for shaded bands."""
+    h = hex_colour.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"rgba({r},{g},{b},{alpha})"
+
+
 def build_chart2(mod_data):
     mod_keys = list(mod_data.keys())
     traces_per_mod = []
@@ -17,27 +24,49 @@ def build_chart2(mod_data):
     )
 
     # ------------------------------------------------------------------
-    # Add ALL traces — only first moderator visible at load.
-    # showlegend=True only for panel 1 traces of the first moderator.
-    # All others start with showlegend=False and are updated by buttons.
+    # Add traces — for each group: CI band (filled) then line on top.
+    # Band uses upper+lower values joined into a single filled polygon.
+    # Only first moderator visible at load; showlegend only for p1 traces.
     # ------------------------------------------------------------------
     for i, key in enumerate(mod_keys):
-        mod     = mod_data[key]
-        visible = (i == 0)
-
-        n_traces = len(mod["groups"]) * 2
+        mod      = mod_data[key]
+        visible  = (i == 0)
+        n_groups = len(mod["groups"])
+        # 2 traces per group per panel (band + line) × 2 panels = 4 per group
+        n_traces = n_groups * 4
         traces_per_mod.append(n_traces)
 
         for panel_idx, panel_key in enumerate(["p1", "p2"]):
             col_num     = panel_idx + 1
-            # Only the first moderator, first panel gets showlegend=True at load
             show_legend = (i == 0 and panel_idx == 0)
 
             for grp in mod["groups"]:
+                upper = grp[f"{panel_key}_upper"]
+                lower = grp[f"{panel_key}_lower"]
+                mid   = grp[panel_key]
+                rgba  = _hex_to_rgba(grp["colour"], alpha=0.15)
+
+                # --- CI band (filled polygon, no legend entry) ---
+                fig.add_trace(
+                    go.Scatter(
+                        x=X_VALS + X_VALS[::-1],
+                        y=upper + lower[::-1],
+                        fill="toself",
+                        fillcolor=rgba,
+                        line=dict(color="rgba(0,0,0,0)"),
+                        hoverinfo="skip",
+                        showlegend=False,
+                        visible=visible,
+                        legendgroup=f"{key}::{grp['name']}",
+                    ),
+                    row=1, col=col_num,
+                )
+
+                # --- Predicted line ---
                 fig.add_trace(
                     go.Scatter(
                         x=X_VALS,
-                        y=grp[panel_key],
+                        y=mid,
                         mode="lines+markers",
                         name=grp["name"],
                         line=dict(color=grp["colour"], width=2.5),
@@ -50,40 +79,36 @@ def build_chart2(mod_data):
                 )
 
     # ------------------------------------------------------------------
-    # Build button args — each button sets visible AND showlegend
-    # so only the active moderator's panel-1 traces appear in legend
+    # Toggle buttons — update visible and showlegend together
     # ------------------------------------------------------------------
     total_traces = sum(traces_per_mod)
-
-    # Pre-compute per-trace whether it is a panel-1 trace
-    # Panel 1 traces are added first within each moderator block
-    # Order per moderator: [p1_grp0, p1_grp1, ..., p2_grp0, p2_grp1, ...]
-    buttons = []
-    offset  = 0
+    buttons      = []
+    offset       = 0
 
     for i, key in enumerate(mod_keys):
-        mod        = mod_data[key]
-        n_groups   = len(mod["groups"])
-        n          = traces_per_mod[i]
+        mod      = mod_data[key]
+        n_groups = len(mod["groups"])
+        n        = traces_per_mod[i]
 
-        vis          = [False] * total_traces
-        show_legend  = [False] * total_traces
+        vis = [False] * total_traces
+        sl  = [False] * total_traces
 
         for j in range(n):
             vis[offset + j] = True
-            # Panel 1 traces are the first n_groups within this moderator's block
-            if j < n_groups:
-                show_legend[offset + j] = True
+
+        # showlegend=True only for the line traces (odd indices within
+        # each panel block) of panel 1 (first n_groups*2 traces)
+        # Trace order within each moderator block:
+        # [p1_grp0_band, p1_grp0_line, p1_grp1_band, p1_grp1_line, ...,
+        #  p2_grp0_band, p2_grp0_line, ...]
+        for j in range(n_groups):
+            line_idx = offset + j * 2 + 1   # p1 line traces
+            sl[line_idx] = True
 
         buttons.append(dict(
             label=mod["label"],
             method="update",
-            args=[
-                {
-                    "visible":    vis,
-                    "showlegend": show_legend,
-                },
-            ],
+            args=[{"visible": vis, "showlegend": sl}],
         ))
         offset += n
 
@@ -120,7 +145,6 @@ def build_chart2(mod_data):
         height=520,
     )
 
-    # Subplot titles are annotations — increase font size
     for annotation in fig.layout.annotations:
         annotation.update(font=dict(size=16, family="Arial, sans-serif"))
 

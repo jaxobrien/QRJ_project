@@ -3,11 +3,6 @@ import numpy as np
 
 
 def load_panels():
-    """
-    Load and clean both panel datasets.
-    Returns df1 (2010-2014), df2 (2015-2019), and df_combined.
-    Age restricted to 10-15. Derived variables added here.
-    """
     df1 = pd.read_csv("utils/panel_2010_2014.csv")
     df2 = pd.read_csv("utils/panel_2015_2019.csv")
 
@@ -23,7 +18,6 @@ def load_panels():
 
 
 def means_by_age(df, outcome):
-    """Return mean of outcome by age."""
     return df.groupby("age")[outcome].mean().round(4)
 
 
@@ -32,13 +26,14 @@ def means_by_age(df, outcome):
 # Predicted happiness = intercept + b_x*x + b_mod*mod_val + b_int*x*mod_val
 # Coefficients from Appendix 2, Panel 1 and Panel 2 columns.
 # mod_val is the observed mean within each group, computed from the data.
+# CI bands: ±1.96 * SE(b_int) * x * mod_val  — widens with x, zero at x=0.
+# SE(b_int) from appendix standard errors.
 # ---------------------------------------------------------------------------
 
-X_VALS = list(range(0, 5))   # 0,1,2,3,4 — the five ordinal SM hour categories
+X_VALS = list(range(0, 5))
 
 
 def _predicted(coefs, x, mod_val):
-    """Predicted happiness at a given x and moderator value."""
     return np.clip(
         coefs["intercept"]
         + coefs["b_x"]   * x
@@ -48,30 +43,41 @@ def _predicted(coefs, x, mod_val):
     )
 
 
+def _ci_bounds(coefs, se_int, x, mod_val, band_mod_val=None):
+    """Upper and lower 95% CI bounds around predicted value.
+    band_mod_val overrides mod_val for the band width calculation —
+    used for binary variables so mod_val=0 still gets a meaningful band.
+    """
+    yhat = _predicted(coefs, x, mod_val)
+    bv   = band_mod_val if band_mod_val is not None else abs(mod_val)
+    hw   = 1.96 * se_int * x * bv
+    return (
+        round(np.clip(yhat + hw, 1, 7), 3),
+        round(np.clip(yhat - hw, 1, 7), 3),
+    )
+
+
 def _group_mean(df, col, lo, hi):
-    """Observed mean of col for rows where col is in [lo, hi)."""
     sub = df[(df[col] >= lo) & (df[col] < hi)][col].dropna()
     return sub.mean()
 
 
-def build_moderator_data(df_combined):
-    """
-    Build predicted happiness lines for each moderator using appendix
-    interaction coefficients and observed within-group means as mod_val.
+def _build_group(name, colour, coefs_p1, coefs_p2, se_p1, se_p2, mod_val, band_mod_val=None):
+    """Build a single group dict with predicted lines and CI bands."""
+    grp = {"name": name, "colour": colour}
+    for panel_key, coefs, se in [("p1", coefs_p1, se_p1), ("p2", coefs_p2, se_p2)]:
+        grp[panel_key]            = [round(_predicted(coefs, x, mod_val), 3) for x in X_VALS]
+        grp[f"{panel_key}_upper"] = [_ci_bounds(coefs, se, x, mod_val, band_mod_val)[0] for x in X_VALS]
+        grp[f"{panel_key}_lower"] = [_ci_bounds(coefs, se, x, mod_val, band_mod_val)[1] for x in X_VALS]
+    return grp
 
-    Returns a dict keyed by moderator name. Each value is:
-        {
-            label:  str,
-            groups: [ {name, colour, p1: [y0..y4], p2: [y0..y4]}, ... ]
-        }
-    """
+
+def build_moderator_data(df_combined):
     mods = {}
 
     # ------------------------------------------------------------------
-    # 1. Sex (binary: 0=Male, 1=Female)
-    # Appendix coefficients:
-    #   P1: intercept=6.002, b_x=-0.124, b_mod=0.050, b_int=-0.095
-    #   P2: intercept=5.895, b_x=-0.171, b_mod=0.235, b_int=-0.121
+    # 1. Sex
+    # SE(b_int): P1=0.046, P2=0.054
     # ------------------------------------------------------------------
     sex_coefs = {
         "p1": {"intercept": 6.002, "b_x": -0.124, "b_mod": 0.050, "b_int": -0.095},
@@ -80,27 +86,14 @@ def build_moderator_data(df_combined):
     mods["sex"] = {
         "label": "Sex",
         "groups": [
-            {
-                "name": "Male",
-                "colour": "#E8714C",
-                "p1": [round(_predicted(sex_coefs["p1"], x, 0), 3) for x in X_VALS],
-                "p2": [round(_predicted(sex_coefs["p2"], x, 0), 3) for x in X_VALS],
-            },
-            {
-                "name": "Female",
-                "colour": "#4C9BE8",
-                "p1": [round(_predicted(sex_coefs["p1"], x, 1), 3) for x in X_VALS],
-                "p2": [round(_predicted(sex_coefs["p2"], x, 1), 3) for x in X_VALS],
-            },
+            _build_group("Male",   "#E8714C", sex_coefs["p1"], sex_coefs["p2"], 0.046, 0.054, 0, band_mod_val=1),
+            _build_group("Female", "#4C9BE8", sex_coefs["p1"], sex_coefs["p2"], 0.046, 0.054, 1),
         ],
     }
 
     # ------------------------------------------------------------------
-    # 2. Self-esteem index (levels 2, 3, 4 — level 1 has only 4 obs)
-    # mod_val = observed mean within each integer band (±0.5)
-    # Appendix coefficients:
-    #   P1: intercept=2.615, b_x=-0.308, b_mod=1.026, b_int=0.089
-    #   P2: intercept=2.645, b_x=-0.578, b_mod=1.021, b_int=0.157
+    # 2. Self-esteem (levels 1–4, mod_val = observed mean within ±0.5)
+    # SE(b_int): P1=0.064, P2=0.048
     # ------------------------------------------------------------------
     se_coefs = {
         "p1": {"intercept": 2.615, "b_x": -0.308, "b_mod": 1.026, "b_int": 0.089},
@@ -111,72 +104,51 @@ def build_moderator_data(df_combined):
     se_groups  = []
     for lvl, colour, lbl in zip([1, 2, 3, 4], se_colours, se_labels):
         mv = _group_mean(df_combined, "selfesteem_index", lvl - 0.5, lvl + 0.5)
-        se_groups.append({
-            "name": lbl,
-            "colour": colour,
-            "p1": [round(_predicted(se_coefs["p1"], x, mv), 3) for x in X_VALS],
-            "p2": [round(_predicted(se_coefs["p2"], x, mv), 3) for x in X_VALS],
-        })
+        se_groups.append(_build_group(lbl, colour, se_coefs["p1"], se_coefs["p2"], 0.064, 0.048, mv))
     mods["selfesteem"] = {"label": "Self-esteem", "groups": se_groups}
 
     # ------------------------------------------------------------------
-    # 3. SDQ — clinical bands, mod_val = observed mean within each band
-    # Appendix coefficients:
-    #   P1: intercept=6.705, b_x=-0.006, b_mod=-0.072, b_int=-0.010
-    #   P2: intercept=6.974, b_x=-0.119, b_mod=-0.098, b_int=0.000
+    # 3. SDQ clinical bands, mod_val = observed mean within band
+    # SE(b_int): P1=0.004, P2=0.005
     # ------------------------------------------------------------------
     sdq_coefs = {
         "p1": {"intercept": 6.705, "b_x": -0.006, "b_mod": -0.072, "b_int": -0.010},
         "p2": {"intercept": 6.974, "b_x": -0.119, "b_mod": -0.098, "b_int":  0.000},
     }
     sdq_bands = [
-        ("Normal (0–15)",     -1,  15, "#4C9BE8"),
-        ("Borderline (16–19)", 15, 19, "#E8B44C"),
-        ("Abnormal (20–40)",   19, 40, "#E8714C"),
+        ("Normal (0–15)",      -1, 15,  "#4C9BE8"),
+        ("Borderline (16–19)", 15, 19,  "#E8B44C"),
+        ("Abnormal (20–40)",   19, 40,  "#E8714C"),
     ]
     sdq_groups = []
     for name, lo, hi, colour in sdq_bands:
         mv = _group_mean(df_combined, "sdq_total", lo, hi + 1)
-        sdq_groups.append({
-            "name": name,
-            "colour": colour,
-            "p1": [round(_predicted(sdq_coefs["p1"], x, mv), 3) for x in X_VALS],
-            "p2": [round(_predicted(sdq_coefs["p2"], x, mv), 3) for x in X_VALS],
-        })
+        sdq_groups.append(_build_group(name, colour, sdq_coefs["p1"], sdq_coefs["p2"], 0.004, 0.005, mv))
     mods["sdq"] = {"label": "SDQ", "groups": sdq_groups}
 
     # ------------------------------------------------------------------
-    # 4. Physical health (discrete levels 1–5, mod_val = exact integer)
-    # Appendix coefficients:
-    #   P1: intercept=5.046, b_x=-0.403, b_mod=0.239, b_int=0.077
-    #   P2: intercept=4.772, b_x=-0.550, b_mod=0.301, b_int=0.097
+    # 4. Physical health (levels 1–5, mod_val = exact integer)
+    # SE(b_int): P1=0.037, P2=0.033
     # ------------------------------------------------------------------
     health_coefs = {
         "p1": {"intercept": 5.046, "b_x": -0.403, "b_mod": 0.239, "b_int": 0.077},
         "p2": {"intercept": 4.772, "b_x": -0.550, "b_mod": 0.301, "b_int": 0.097},
     }
     health_items = [
-        (1, "Poor (1)",       "#E8714C"),
-        (2, "Fair (2)",       "#E8B44C"),
-        (3, "Good (3)",       "#4CAF50"),
-        (4, "Very good (4)",  "#4C9BE8"),
-        (5, "Excellent (5)",  "#7B4CE8"),
+        (1, "Poor (1)",      "#E8714C"),
+        (2, "Fair (2)",      "#E8B44C"),
+        (3, "Good (3)",      "#4CAF50"),
+        (4, "Very good (4)", "#4C9BE8"),
+        (5, "Excellent (5)", "#7B4CE8"),
     ]
     health_groups = []
     for lvl, name, colour in health_items:
-        health_groups.append({
-            "name": name,
-            "colour": colour,
-            "p1": [round(_predicted(health_coefs["p1"], x, lvl), 3) for x in X_VALS],
-            "p2": [round(_predicted(health_coefs["p2"], x, lvl), 3) for x in X_VALS],
-        })
-    mods["health"] = {"label": "Health", "groups": health_groups}
+        health_groups.append(_build_group(name, colour, health_coefs["p1"], health_coefs["p2"], 0.037, 0.033, lvl))
+    mods["health"] = {"label": "Physical health", "groups": health_groups}
 
     # ------------------------------------------------------------------
-    # 5. Parental relationship index (levels 1–4, mod_val = observed mean)
-    # Appendix coefficients:
-    #   P1: intercept=5.659, b_x=-0.209, b_mod=0.127, b_int=0.011
-    #   P2: intercept=5.811, b_x=-0.390, b_mod=0.054, b_int=0.062
+    # 5. Parental relationship (levels 1–4, mod_val = observed mean)
+    # SE(b_int): P1=0.028, P2=0.031
     # ------------------------------------------------------------------
     par_coefs = {
         "p1": {"intercept": 5.659, "b_x": -0.209, "b_mod": 0.127, "b_int": 0.011},
@@ -187,19 +159,12 @@ def build_moderator_data(df_combined):
     par_groups  = []
     for lvl, colour, lbl in zip([1, 2, 3, 4], idx_colours, idx_labels):
         mv = _group_mean(df_combined, "parent_index", lvl - 0.5, lvl + 0.5)
-        par_groups.append({
-            "name": lbl,
-            "colour": colour,
-            "p1": [round(_predicted(par_coefs["p1"], x, mv), 3) for x in X_VALS],
-            "p2": [round(_predicted(par_coefs["p2"], x, mv), 3) for x in X_VALS],
-        })
+        par_groups.append(_build_group(lbl, colour, par_coefs["p1"], par_coefs["p2"], 0.028, 0.031, mv))
     mods["parent"] = {"label": "Parental relationship", "groups": par_groups}
 
     # ------------------------------------------------------------------
-    # 6. Sibling relationship index (levels 1–4, mod_val = observed mean)
-    # Appendix coefficients:
-    #   P1: intercept=5.212, b_x=-0.236, b_mod=0.260, b_int=0.013
-    #   P2: intercept=3.693, b_x=0.471,  b_mod=0.700, b_int=-0.191
+    # 6. Sibling relationship (levels 1–4, mod_val = observed mean)
+    # SE(b_int): P1=0.041, P2=0.058
     # ------------------------------------------------------------------
     sib_coefs = {
         "p1": {"intercept": 5.212, "b_x": -0.236, "b_mod": 0.260, "b_int":  0.013},
@@ -208,51 +173,34 @@ def build_moderator_data(df_combined):
     sib_groups = []
     for lvl, colour, lbl in zip([1, 2, 3, 4], idx_colours, idx_labels):
         mv = _group_mean(df_combined, "sib_index", lvl - 0.5, lvl + 0.5)
-        sib_groups.append({
-            "name": lbl,
-            "colour": colour,
-            "p1": [round(_predicted(sib_coefs["p1"], x, mv), 3) for x in X_VALS],
-            "p2": [round(_predicted(sib_coefs["p2"], x, mv), 3) for x in X_VALS],
-        })
+        sib_groups.append(_build_group(lbl, colour, sib_coefs["p1"], sib_coefs["p2"], 0.041, 0.058, mv))
     mods["siblings"] = {"label": "Sibling relationship", "groups": sib_groups}
 
     # ------------------------------------------------------------------
-    # 7. Leisure activity index (6 bands matching original survey labels)
-    # Each individual leisure item scored 0-5; index is mean across items.
-    # mod_val = observed mean within each band.
-    # Appendix coefficients:
-    #   P1: intercept=5.692, b_x=-0.057, b_mod=0.169, b_int=-0.043
-    #   P2: intercept=5.846, b_x=-0.387, b_mod=0.124, b_int=0.095
+    # 7. Leisure activity (6 survey-label bands, mod_val = observed mean)
+    # SE(b_int): P1=0.034, P2=0.066
     # ------------------------------------------------------------------
     leisure_coefs = {
         "p1": {"intercept": 5.692, "b_x": -0.057, "b_mod": 0.169, "b_int": -0.043},
         "p2": {"intercept": 5.846, "b_x": -0.387, "b_mod": 0.124, "b_int":  0.095},
     }
     leisure_bands = [
-        (0,   0.5,  "Never/almost never",      "#E8714C"),
-        (0.5, 1.5,  "Once a year or less",      "#E8B44C"),
-        (1.5, 2.5,  "Several times per year",   "#4CAF50"),
-        (2.5, 3.5,  "At least once per month",  "#4C9BE8"),
-        (3.5, 4.5,  "At least once per week",   "#7B4CE8"),
-        (4.5, 5.1,  "Most days",                "#333333"),
+        (0,   0.5,  "Never/almost never",     "#E8714C"),
+        (0.5, 1.5,  "Once a year or less",     "#E8B44C"),
+        (1.5, 2.5,  "Several times per year",  "#4CAF50"),
+        (2.5, 3.5,  "At least once per month", "#4C9BE8"),
+        (3.5, 4.5,  "At least once per week",  "#7B4CE8"),
+        (4.5, 5.1,  "Most days",               "#333333"),
     ]
     leisure_groups = []
     for lo, hi, name, colour in leisure_bands:
         mv = _group_mean(df_combined, "leisure_index", lo, hi)
-        leisure_groups.append({
-            "name":   name,
-            "colour": colour,
-            "p1": [round(_predicted(leisure_coefs["p1"], x, mv), 3) for x in X_VALS],
-            "p2": [round(_predicted(leisure_coefs["p2"], x, mv), 3) for x in X_VALS],
-        })
-    mods["leisure"] = {"label": "Leisure activities", "groups": leisure_groups}
+        leisure_groups.append(_build_group(name, colour, leisure_coefs["p1"], leisure_coefs["p2"], 0.034, 0.066, mv))
+    mods["leisure"] = {"label": "Leisure activity", "groups": leisure_groups}
 
     # ------------------------------------------------------------------
-    # 8. Bullying involvement (binary: 0=Not involved, 1=Involved)
-    # mod_val = 0 or 1 exactly (binary variable)
-    # Appendix coefficients:
-    #   P1: intercept=6.216, b_x=-0.189, b_mod=-0.864, b_int=-0.128
-    #   P2: intercept=6.220, b_x=-0.197, b_mod=-1.637, b_int=0.161
+    # 8. Bullying (binary: 0=Not involved, 1=Involved)
+    # SE(b_int): P1=0.109, P2=0.169
     # ------------------------------------------------------------------
     bully_coefs = {
         "p1": {"intercept": 6.216, "b_x": -0.189, "b_mod": -0.864, "b_int": -0.128},
@@ -261,18 +209,8 @@ def build_moderator_data(df_combined):
     mods["bullying"] = {
         "label": "Bullying involvement",
         "groups": [
-            {
-                "name": "Not exposed to bullying",
-                "colour": "#4C9BE8",
-                "p1": [round(_predicted(bully_coefs["p1"], x, 0), 3) for x in X_VALS],
-                "p2": [round(_predicted(bully_coefs["p2"], x, 0), 3) for x in X_VALS],
-            },
-            {
-                "name": "Exposed to bullying",
-                "colour": "#E8714C",
-                "p1": [round(_predicted(bully_coefs["p1"], x, 1), 3) for x in X_VALS],
-                "p2": [round(_predicted(bully_coefs["p2"], x, 1), 3) for x in X_VALS],
-            },
+            _build_group("Not involved",         "#4C9BE8", bully_coefs["p1"], bully_coefs["p2"], 0.109, 0.169, 0, band_mod_val=1),
+            _build_group("Involved in bullying",  "#E8714C", bully_coefs["p1"], bully_coefs["p2"], 0.109, 0.169, 1),
         ],
     }
 
