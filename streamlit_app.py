@@ -29,6 +29,11 @@ st.markdown(
 
 st.divider()
 
+from utils.charts.social_media_legislation_map import build_legislation_map
+
+fig = build_legislation_map()
+st.plotly_chart(fig, use_container_width=True)
+
 # ---------------------------------------------------------------------------
 # Section 1: Overview chart
 # ---------------------------------------------------------------------------
