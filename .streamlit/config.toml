@@ -1,0 +1,7 @@
+[theme]
+# Matches the Styleguide palette exactly
+primaryColor             = "#2e4b62"   # Charcoal Blue — buttons, links, active widgets
+backgroundColor          = "#fefdf9"   # Porcelain — main canvas
+secondaryBackgroundColor = "#faf5cc"   # Lemon Chiffon — sidebar, code blocks
+textColor                = "#27304a"   # Space Indigo — body text
+font                     = "sans serif"  # DM Sans loaded via CSS in style.py
