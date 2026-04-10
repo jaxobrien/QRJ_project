@@ -107,12 +107,13 @@ def build_moderator_data(df_combined):
         "p2": {"intercept": 2.645, "b_x": -0.578, "b_mod": 1.021, "b_int": 0.157},
     }
     se_colours = ["#E8714C", "#4CAF50", "#4C9BE8"]
-    se_groups = []
-    for lvl, col in zip([2, 3, 4], se_colours):
+    se_labels  = ["Least positive", "Moderately positive", "Most positive"]
+    se_groups  = []
+    for lvl, colour, lbl in zip([2, 3, 4], se_colours, se_labels):
         mv = _group_mean(df_combined, "selfesteem_index", lvl - 0.5, lvl + 0.5)
         se_groups.append({
-            "name": f"Level {lvl}",
-            "colour": col,
+            "name": lbl,
+            "colour": colour,
             "p1": [round(_predicted(se_coefs["p1"], x, mv), 3) for x in X_VALS],
             "p2": [round(_predicted(se_coefs["p2"], x, mv), 3) for x in X_VALS],
         })
@@ -182,11 +183,12 @@ def build_moderator_data(df_combined):
         "p2": {"intercept": 5.811, "b_x": -0.390, "b_mod": 0.054, "b_int": 0.062},
     }
     idx_colours = ["#E8714C", "#E8B44C", "#4CAF50", "#4C9BE8"]
-    par_groups = []
-    for lvl, colour in zip([1, 2, 3, 4], idx_colours):
+    idx_labels  = ["Least positive", "Somewhat positive", "Mostly positive", "Most positive"]
+    par_groups  = []
+    for lvl, colour, lbl in zip([1, 2, 3, 4], idx_colours, idx_labels):
         mv = _group_mean(df_combined, "parent_index", lvl - 0.5, lvl + 0.5)
         par_groups.append({
-            "name": f"Level {lvl}",
+            "name": lbl,
             "colour": colour,
             "p1": [round(_predicted(par_coefs["p1"], x, mv), 3) for x in X_VALS],
             "p2": [round(_predicted(par_coefs["p2"], x, mv), 3) for x in X_VALS],
@@ -204,10 +206,10 @@ def build_moderator_data(df_combined):
         "p2": {"intercept": 3.693, "b_x":  0.471, "b_mod": 0.700, "b_int": -0.191},
     }
     sib_groups = []
-    for lvl, colour in zip([1, 2, 3, 4], idx_colours):
+    for lvl, colour, lbl in zip([1, 2, 3, 4], idx_colours, idx_labels):
         mv = _group_mean(df_combined, "sib_index", lvl - 0.5, lvl + 0.5)
         sib_groups.append({
-            "name": f"Level {lvl}",
+            "name": lbl,
             "colour": colour,
             "p1": [round(_predicted(sib_coefs["p1"], x, mv), 3) for x in X_VALS],
             "p2": [round(_predicted(sib_coefs["p2"], x, mv), 3) for x in X_VALS],
@@ -225,10 +227,10 @@ def build_moderator_data(df_combined):
         "p2": {"intercept": 5.846, "b_x": -0.387, "b_mod": 0.124, "b_int":  0.095},
     }
     leisure_groups = []
-    for lvl, colour in zip([1, 2, 3, 4], idx_colours):
+    for lvl, colour, lbl in zip([1, 2, 3, 4], idx_colours, idx_labels):
         mv = _group_mean(df_combined, "leisure_index", lvl - 0.5, lvl + 0.5)
         leisure_groups.append({
-            "name": f"Level {lvl}",
+            "name": lbl,
             "colour": colour,
             "p1": [round(_predicted(leisure_coefs["p1"], x, mv), 3) for x in X_VALS],
             "p2": [round(_predicted(leisure_coefs["p2"], x, mv), 3) for x in X_VALS],
