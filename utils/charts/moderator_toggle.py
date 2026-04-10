@@ -116,24 +116,12 @@ def build_chart2(mod_data):
     # Layout
     # ------------------------------------------------------------------
     fig.update_layout(
-        updatemenus=[dict(
-            type="buttons",
-            direction="right",
-            x=0.5,
-            xanchor="center",
-            y=1.22,
-            yanchor="top",
-            buttons=buttons,
-            showactive=True,
-            bgcolor="#F0F0F0",
-            bordercolor="#CCCCCC",
-            font=dict(size=12),
-        )],
+        updatemenus=[],   # buttons handled externally by Streamlit
         legend=dict(
             title_text="",
             orientation="h",
             yanchor="bottom",
-            y=-0.30,
+            y=-0.25,
             xanchor="center",
             x=0.5,
             font=dict(size=13),
@@ -141,8 +129,8 @@ def build_chart2(mod_data):
         plot_bgcolor="white",
         paper_bgcolor="white",
         font=dict(family="Arial, sans-serif", size=13),
-        margin=dict(t=110, b=110, l=70, r=30),
-        height=520,
+        margin=dict(t=60, b=90, l=70, r=30),
+        height=480,
     )
 
     for annotation in fig.layout.annotations:

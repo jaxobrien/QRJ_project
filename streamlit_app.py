@@ -263,10 +263,11 @@ st.markdown(
     "Shaded bands show 95% confidence intervals around predicted values."
 )
 
-# Selectbox drives both the chart and the caption
-selected_label = st.selectbox(
+# Radio rendered as a horizontal button row — drives both chart and caption
+selected_label = st.radio(
     "Moderating factor",
     options=list(LABEL_TO_KEY.keys()),
+    horizontal=True,
     label_visibility="collapsed",
 )
 
