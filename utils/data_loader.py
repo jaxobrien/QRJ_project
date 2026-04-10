@@ -106,10 +106,10 @@ def build_moderator_data(df_combined):
         "p1": {"intercept": 2.615, "b_x": -0.308, "b_mod": 1.026, "b_int": 0.089},
         "p2": {"intercept": 2.645, "b_x": -0.578, "b_mod": 1.021, "b_int": 0.157},
     }
-    se_colours = ["#E8714C", "#4CAF50", "#4C9BE8"]
-    se_labels  = ["Least positive", "Moderately positive", "Most positive"]
+    se_colours = ["#E8714C", "#E8B44C", "#4CAF50", "#4C9BE8"]
+    se_labels  = ["Least positive", "Less positive", "More positive", "Most positive"]
     se_groups  = []
-    for lvl, colour, lbl in zip([2, 3, 4], se_colours, se_labels):
+    for lvl, colour, lbl in zip([1, 2, 3, 4], se_colours, se_labels):
         mv = _group_mean(df_combined, "selfesteem_index", lvl - 0.5, lvl + 0.5)
         se_groups.append({
             "name": lbl,
@@ -183,7 +183,7 @@ def build_moderator_data(df_combined):
         "p2": {"intercept": 5.811, "b_x": -0.390, "b_mod": 0.054, "b_int": 0.062},
     }
     idx_colours = ["#E8714C", "#E8B44C", "#4CAF50", "#4C9BE8"]
-    idx_labels  = ["Least positive", "Somewhat positive", "Mostly positive", "Most positive"]
+    idx_labels  = ["Least positive", "Less positive", "More positive", "Most positive"]
     par_groups  = []
     for lvl, colour, lbl in zip([1, 2, 3, 4], idx_colours, idx_labels):
         mv = _group_mean(df_combined, "parent_index", lvl - 0.5, lvl + 0.5)
@@ -217,7 +217,9 @@ def build_moderator_data(df_combined):
     mods["siblings"] = {"label": "Sibling relationship", "groups": sib_groups}
 
     # ------------------------------------------------------------------
-    # 7. Leisure activity index (levels 1–4, mod_val = observed mean)
+    # 7. Leisure activity index (6 bands matching original survey labels)
+    # Each individual leisure item scored 0-5; index is mean across items.
+    # mod_val = observed mean within each band.
     # Appendix coefficients:
     #   P1: intercept=5.692, b_x=-0.057, b_mod=0.169, b_int=-0.043
     #   P2: intercept=5.846, b_x=-0.387, b_mod=0.124, b_int=0.095
@@ -226,11 +228,19 @@ def build_moderator_data(df_combined):
         "p1": {"intercept": 5.692, "b_x": -0.057, "b_mod": 0.169, "b_int": -0.043},
         "p2": {"intercept": 5.846, "b_x": -0.387, "b_mod": 0.124, "b_int":  0.095},
     }
+    leisure_bands = [
+        (0,   0.5,  "Never/almost never",      "#E8714C"),
+        (0.5, 1.5,  "Once a year or less",      "#E8B44C"),
+        (1.5, 2.5,  "Several times per year",   "#4CAF50"),
+        (2.5, 3.5,  "At least once per month",  "#4C9BE8"),
+        (3.5, 4.5,  "At least once per week",   "#7B4CE8"),
+        (4.5, 5.1,  "Most days",                "#333333"),
+    ]
     leisure_groups = []
-    for lvl, colour, lbl in zip([1, 2, 3, 4], idx_colours, idx_labels):
-        mv = _group_mean(df_combined, "leisure_index", lvl - 0.5, lvl + 0.5)
+    for lo, hi, name, colour in leisure_bands:
+        mv = _group_mean(df_combined, "leisure_index", lo, hi)
         leisure_groups.append({
-            "name": lbl,
+            "name":   name,
             "colour": colour,
             "p1": [round(_predicted(leisure_coefs["p1"], x, mv), 3) for x in X_VALS],
             "p2": [round(_predicted(leisure_coefs["p2"], x, mv), 3) for x in X_VALS],
