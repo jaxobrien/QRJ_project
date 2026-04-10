@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.data_loader import load_panels, moderator_groups
+from utils.data_loader import load_panels, build_moderator_data
 from utils.charts.panel_overview import build_chart1
 from utils.charts.moderator_toggle import build_chart2
 from utils.charts.risk_profile_widget import render_widget
@@ -14,9 +14,11 @@ st.set_page_config(
 # ---------------------------------------------------------------------------
 @st.cache_data
 def get_data():
-    return load_panels()
+    df1, df2, df_combined = load_panels()
+    mod_data = build_moderator_data(df_combined)
+    return df1, df2, df_combined, mod_data
 
-df1, df2, df_combined = get_data()
+df1, df2, df_combined, mod_data = get_data()
 
 # ---------------------------------------------------------------------------
 # Page header
@@ -28,11 +30,6 @@ st.markdown(
 )
 
 st.divider()
-
-from utils.charts.social_media_legislation_map import build_legislation_map
-
-fig = build_legislation_map()
-st.plotly_chart(fig, use_container_width=True)
 
 # ---------------------------------------------------------------------------
 # Section 1: Overview chart
@@ -58,16 +55,21 @@ st.divider()
 st.subheader("Who is most affected?")
 st.markdown(
     "The relationship between social media use and happiness is not the same for "
-    "everyone. Use the buttons to explore how individual characteristics — "
-    "self-esteem, mental health, parental support, physical health, and sex — "
-    "shape the happiness trajectories of adolescents as they age. "
-    "Groups are defined as approximately one standard deviation above and below "
-    "the sample mean."
+    "everyone. Use the buttons below to explore how individual characteristics — "
+    "sex, self-esteem, mental health, physical health, parental and sibling "
+    "relationships, leisure activity, and bullying — shape that relationship. "
+    "Lines show mean observed happiness at each level of social media use. "
+    "Data shown separately for each panel cohort."
 )
-st.plotly_chart(build_chart2(df_combined), use_container_width=True)
+st.plotly_chart(build_chart2(mod_data), use_container_width=True)
 st.caption(
-    "Groups represent approximately ±1 SD from the sample mean on each measure. "
-    "Sex is shown as a binary split. Data pooled across both panels."
+    "Mean observed happiness by social media hours. Health shown at all five "
+    "survey levels. Index variables (self-esteem, parental relationship, sibling "
+    "relationship, leisure) shown at integer scale levels using observations within "
+    "±0.5 of each level. SDQ uses clinical bands: Normal (0–15), Borderline (16–19), "
+    "Abnormal (20–40) — borderline and abnormal groups are small; interpret with "
+    "caution. Bullying: involved if any bullying variable equals 1. "
+    "Self-esteem level 1 excluded (n=4). Leisure level 4 incomplete at high SM hours."
 )
 
 st.divider()
