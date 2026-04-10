@@ -117,10 +117,12 @@ def build_chart2(mod_data):
             row=1, col=col,
         )
         fig.update_yaxes(
-            title_text="Mean happiness" if col == 1 else "",
-            range=[3.5, 7],
-            tickvals=[4, 5, 6, 7],
-            ticktext=["4", "5", "6", "7 (Completely happy)"],
+            title_text="Predicted happiness" if col == 1 else "",
+            range=[1, 7],
+            tickvals=[1, 2, 3, 4, 5, 6, 7],
+            ticktext=[
+                "1 — Not at all happy", "2", "3", "4", "5", "6", "7 — Completely happy"
+            ],
             showgrid=True,
             gridcolor="#EEEEEE",
             row=1, col=col,
