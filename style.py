@@ -434,7 +434,11 @@ def style_fig(fig: go.Figure, title: str = "", subtitle: str = "") -> go.Figure:
         fig = style_fig(fig, title="Social media hours & happiness")
         st.plotly_chart(fig, use_container_width=True)
     """
-    full_title = f"<b>{title}</b><br><span style='font-size:13px;color:{PALETTE[\"charcoal_blue\"]};font-style:italic'>{subtitle}</span>" if subtitle else f"<b>{title}</b>"
+    _c = PALETTE["charcoal_blue"]
+    full_title = (
+        f"<b>{title}</b><br><span style='font-size:13px;color:{_c};font-style:italic'>{subtitle}</span>"
+        if subtitle else f"<b>{title}</b>"
+    )
 
     fig.update_layout(
         template="wellbeing",
