@@ -170,7 +170,7 @@ def build_moderator_data(df_combined):
             "p1": [round(_predicted(health_coefs["p1"], x, lvl), 3) for x in X_VALS],
             "p2": [round(_predicted(health_coefs["p2"], x, lvl), 3) for x in X_VALS],
         })
-    mods["health"] = {"label": "Physical health", "groups": health_groups}
+    mods["health"] = {"label": "Health", "groups": health_groups}
 
     # ------------------------------------------------------------------
     # 5. Parental relationship index (levels 1–4, mod_val = observed mean)
@@ -245,7 +245,7 @@ def build_moderator_data(df_combined):
             "p1": [round(_predicted(leisure_coefs["p1"], x, mv), 3) for x in X_VALS],
             "p2": [round(_predicted(leisure_coefs["p2"], x, mv), 3) for x in X_VALS],
         })
-    mods["leisure"] = {"label": "Leisure activity", "groups": leisure_groups}
+    mods["leisure"] = {"label": "Leisure activities", "groups": leisure_groups}
 
     # ------------------------------------------------------------------
     # 8. Bullying involvement (binary: 0=Not involved, 1=Involved)
@@ -262,13 +262,13 @@ def build_moderator_data(df_combined):
         "label": "Bullying involvement",
         "groups": [
             {
-                "name": "Not involved",
+                "name": "Not exposed to bullying",
                 "colour": "#4C9BE8",
                 "p1": [round(_predicted(bully_coefs["p1"], x, 0), 3) for x in X_VALS],
                 "p2": [round(_predicted(bully_coefs["p2"], x, 0), 3) for x in X_VALS],
             },
             {
-                "name": "Involved in bullying",
+                "name": "Exposed to bullying",
                 "colour": "#E8714C",
                 "p1": [round(_predicted(bully_coefs["p1"], x, 1), 3) for x in X_VALS],
                 "p2": [round(_predicted(bully_coefs["p2"], x, 1), 3) for x in X_VALS],
