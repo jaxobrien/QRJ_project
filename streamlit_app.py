@@ -78,3 +78,4 @@ st.divider()
 # Section 3: Risk profile widget
 # ---------------------------------------------------------------------------
 render_widget()
+    
